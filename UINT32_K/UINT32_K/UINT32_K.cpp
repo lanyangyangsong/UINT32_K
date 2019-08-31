@@ -43,6 +43,17 @@ typedef unsigned int UINTSW;
 const UINTSW MIN_NUM = 1;
 const UINTSW MAX_NUM = 10000;
 
+#define SW_LOG(str) 1
+
+
+typedef struct T_RESULT
+{
+	UINTSW k;
+	int length;
+} RESULT;
+
+
+#if SW_LOG("输入模块")
 
 UINTSW Get_Input(void)
 {
@@ -88,6 +99,11 @@ bool Check_Input(UINTSW input)
 	return true;
 }
 
+#endif
+
+
+#if SW_LOG("获取输出数据方法一")
+
 bool Check_Num_Have_1(UINTSW num)
 {
 	if (num == 1)
@@ -108,24 +124,50 @@ bool Check_Num_Have_1(UINTSW num)
 	return false;
 }
 
-int Get_Right_Num(UINTSW input)
+UINTSW Calc_Length(UINTSW input)
 {
-	if (input % 2 == 0)
+	UINTSW data = input;
+	if (data < 10)
 	{
-		printf("找不到这样的正整数K!\n");
-		return -1;
+		return 1; /* 小于10为1位数 */
 	}
-	for (UINTSW i = input; i <= MAX_UINT32_NUM; )
+	else
+	{
+		UINTSW next = data / 10;
+		return (1 + Calc_Length(next));
+	}
+}
+
+bool Get_Right_Num1(UINTSW input, RESULT *result)
+{
+	int data = input;
+
+	if (result == NULL)
+	{
+		return false;
+	}
+
+	if (data % 2 == 0)
+	{
+		SW_PRINT("找不到这样的正整数K!\n");
+		result->k = 0;
+		result->length = -1;
+		return false;
+	}
+	for (UINTSW i = data; i <= MAX_UINT32_NUM; )
 	{
 		if (Check_Num_Have_1(i))
 		{
-			if (i % input == 0) {
-				printf("最小正整数K为： %u\n", i);
-				return i;
+			if (i % data == 0) {
+				int length = Calc_Length(i);
+				SW_PRINT("最小正整数K为：%u， 宽度为：%u.\n", i, length);
+				result->k = i;
+				result->length = length;
+				return true;
 			}
 			else
 			{
-				if (i <= MAX_UINT32_NUM / 10 - 1)
+				if (i <= ((MAX_UINT32_NUM -1)/ 10 ))
 				{
 					i *= 10;
 					i++;
@@ -142,20 +184,186 @@ int Get_Right_Num(UINTSW input)
 		}
 	}
 
-	printf("找不到这样的正整数K!\n");
-	return -1;
+	SW_PRINT("找不到这样的正整数K!\n");
+	result->k = 0;
+	result->length = -1;
+	return false;
 }
+
+#endif
+
+
+#if SW_LOG("获取输出数据方法二")
+
+typedef struct T_DATA
+{
+	UINTSW data;
+	UINTSW dataLength;
+	T_DATA *pNext;
+}DATA;
+
+bool Build_Data(DATA *dataHead)
+{
+	if (dataHead == NULL)
+	{
+		SW_PRINT("申请内存失败!\n");
+		return false;
+	}
+
+	UINTSW data = 1; /* 第一个数据 */
+	UINTSW dataLength = 1; /* 第一个数据长度 */
+	DATA *pLast = dataHead;
+	
+	while(data <= MAX_UINT32_NUM)
+	{		
+		DATA *pData = (DATA *)malloc(sizeof(DATA));
+		if (pData == NULL)
+		{
+			SW_PRINT("申请内存失败!\n");
+			return false;
+		}
+		pData->data = data;
+		pData->dataLength = dataLength;
+		pData->pNext = NULL;
+		pLast->pNext = pData;
+		pLast = pData;
+
+		data *= 10;
+		data++;
+		dataLength++;
+	}
+
+	return true;
+}
+
+void Print_Data(DATA *dataHead)
+{
+	if (dataHead == NULL)
+	{
+		SW_PRINT("STRUCT DATA is NULL!\n");
+		return;
+	}
+
+	DATA *pData = dataHead->pNext;
+
+	while (pData != NULL)
+	{
+		SW_PRINT("第 %u 个数据为 %u ,它的宽度为 %u \n", pData->dataLength, pData->data, pData->dataLength);
+		pData = pData->pNext;
+	}
+	return;
+}
+
+void Destroy_Data(DATA *dataHead)
+{
+	DATA *pData = dataHead;
+
+	if (pData == NULL)
+	{
+		SW_PRINT("STRUCT DATA is already destroyed!\n");
+	}
+
+	while (pData != NULL)
+	{
+		DATA *pNext = pData->pNext;
+		free(pData);
+		pData = pNext;
+	}
+
+	return;
+}
+
+bool Get_Right_Num2(UINTSW input, RESULT *result)
+{
+	DATA dataHead = { 0 };
+	int length = -1;
+
+	if (result == NULL)
+	{
+		return false;
+	}
+
+	bool creatData = Build_Data(&dataHead);
+	
+	if (!creatData)
+	{
+		SW_PRINT("创建数据失败！\n");
+		result->k = 0;
+		result->length = -1;
+		return false;
+	}
+
+	DATA *pData = dataHead.pNext;
+	while (pData != NULL)
+	{
+		if (pData->data % input == 0)
+		{
+			SW_PRINT("最小正整数K为：%u， 宽度为：%u.\n", pData->data, pData->dataLength);
+			length = pData->dataLength;
+			result->k = pData->data;
+			result->length = length;
+			break;
+		}
+		pData = pData->pNext;
+	}
+
+	//Print_Data(&dataHead);
+
+	pData = dataHead.pNext;
+	Destroy_Data(pData);
+	dataHead.pNext = NULL;
+
+	if (length == -1)
+	{
+		SW_PRINT("找不到这样的正整数K!\n");
+		result->k = 0;
+		result->length = -1;
+		return false;
+	}
+
+	return true;
+}
+
+#endif
+
 
 int main()
 {
+#if 0
 	UINTSW input = Get_Input();
 
 	if (!Check_Input(input))
 	{
 		return -1;
 	}
+#endif
 
-	int K = Get_Right_Num(input);
+	RESULT resultFunc1 = { 0 };
+	RESULT resultFunc2 = { 0 };
+
+#if 1
+	for (int i = 1; i <= 50000; i++)
+	{
+		bool res1 = Get_Right_Num1(i, &resultFunc1);
+		bool res2 = Get_Right_Num2(i, &resultFunc2);	
+
+		if (res1 != res2)
+		{
+			printf("当输入数据为 %u 时，", i);
+			printf("结论不一致！方法一的K为：%u, 宽度为： %d, 方法二的K为：%u, 宽度为： %d.\n", resultFunc1.k, resultFunc1.length, resultFunc2.k, resultFunc2.length);
+		}
+		else 
+		{
+			SW_PRINT("当输入数据为 %u 时，结论一致!\n", i);
+			if (resultFunc1.length != -1)
+			{
+				SW_PRINT("K为：%u, 宽度为： %d.\n", resultFunc1.k, resultFunc1.length);
+			}
+		}
+	}
+#endif
+
+	//int K = Get_Right_Num(input);
 
 	system("pause");
 	return 0;
